@@ -9,6 +9,7 @@ Backend API untuk aplikasi manajemen proyek multi-user dengan fitur autentikasi,
 - **Manajemen Tugas**: CRUD untuk tugas dengan status (todo, in-progress, done)
 - **Manajemen Anggota**: Invite dan remove member dari proyek
 - **Proteksi endpoint**: Hanya user yang memiliki akses ke proyek yang dapat melihat/mengubah data
+- **Realtime Updates**: Update realtime untuk perubahan task, project, dan member menggunakan Socket.IO
 
 ## Teknologi
 
@@ -16,6 +17,7 @@ Backend API untuk aplikasi manajemen proyek multi-user dengan fitur autentikasi,
 - PostgreSQL dengan Prisma ORM
 - JWT untuk autentikasi
 - RESTful API
+- Socket.IO untuk realtime updates
 
 ## Instalasi
 
@@ -567,6 +569,88 @@ const updateTaskStatus = async (projectId, taskId, newStatus) => {
 };
 ```
 
+### Implementasi Realtime Updates dengan Socket.IO
+
+Untuk menggunakan fitur realtime updates, tambahkan Socket.IO client di frontend:
+
+```javascript
+// Install socket.io-client
+// npm install socket.io-client
+// atau
+// bun add socket.io-client
+
+import { io } from 'socket.io-client';
+
+// Inisialisasi koneksi socket
+const socket = io('http://localhost:3000', {
+  withCredentials: true,
+});
+
+// Menangani koneksi
+socket.on('connect', () => {
+  console.log('Connected to socket server');
+});
+
+// Bergabung dengan room project
+const joinProject = (projectId) => {
+  socket.emit('join-project', projectId);
+};
+
+// Keluar dari room project
+const leaveProject = (projectId) => {
+  socket.emit('leave-project', projectId);
+};
+
+// Mendengarkan event task
+socket.on('task-created', (task) => {
+  console.log('New task created:', task);
+  // Update UI dengan task baru
+});
+
+socket.on('task-updated', (task) => {
+  console.log('Task updated:', task);
+  // Update UI dengan task yang diperbarui
+});
+
+socket.on('task-deleted', (task) => {
+  console.log('Task deleted:', task);
+  // Hapus task dari UI
+});
+
+socket.on('task-status-changed', (data) => {
+  console.log('Task status changed:', data);
+  // Update UI dengan status task yang diperbarui
+  // data berisi oldStatus dan newStatus untuk animasi drag-and-drop
+});
+
+// Mendengarkan event member
+socket.on('member-added', (data) => {
+  console.log('Member added:', data);
+  // Update UI dengan member baru
+});
+
+socket.on('member-removed', (data) => {
+  console.log('Member removed:', data);
+  // Hapus member dari UI
+});
+
+// Mendengarkan event project
+socket.on('project-updated', (project) => {
+  console.log('Project updated:', project);
+  // Update UI dengan project yang diperbarui
+});
+
+socket.on('project-deleted', (data) => {
+  console.log('Project deleted:', data);
+  // Redirect jika project yang sedang dilihat dihapus
+});
+
+// Menangani disconnect
+socket.on('disconnect', () => {
+  console.log('Disconnected from socket server');
+});
+```
+
 ## Error Handling
 
 API akan mengembalikan kode status HTTP yang sesuai dengan error yang terjadi:
@@ -591,5 +675,6 @@ Contoh respons error:
 - Project hanya bisa diakses oleh owner atau member
 - Hanya owner project yang bisa mengundang/menghapus member dan menghapus project
 - Task status harus salah satu dari: "todo", "in-progress", atau "done"
+- Fitur realtime menggunakan Socket.IO untuk update otomatis di client
 
 This project was created using `bun init` in bun v1.1.36. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.

@@ -1,4 +1,5 @@
 import prisma from '../config/prisma.js';
+import { SOCKET_EVENTS, emitProjectEvent } from '../utils/socketEvents.js';
 
 export const getAllProjects = async (req, res) => {
   try {
@@ -177,6 +178,11 @@ export const updateProject = async (req, res) => {
       }
     });
     
+    // Mengirim event realtime
+    if (req.io) {
+      emitProjectEvent(req.io, projectId, SOCKET_EVENTS.PROJECT_UPDATED, updatedProject);
+    }
+    
     return res.status(200).json({
       message: 'Project updated successfully',
       project: updatedProject
@@ -207,6 +213,11 @@ export const deleteProject = async (req, res) => {
     await prisma.project.delete({
       where: { id: projectId }
     });
+    
+    // Mengirim event realtime
+    if (req.io) {
+      emitProjectEvent(req.io, projectId, SOCKET_EVENTS.PROJECT_DELETED, { id: projectId });
+    }
     
     return res.status(200).json({ message: 'Project deleted successfully' });
   } catch (error) {

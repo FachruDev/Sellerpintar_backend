@@ -1,4 +1,5 @@
 import prisma from '../config/prisma.js';
+import { SOCKET_EVENTS, emitTaskEvent } from '../utils/socketEvents.js';
 
 export const getAllTasks = async (req, res) => {
   try {
@@ -120,7 +121,7 @@ export const createTask = async (req, res) => {
       return res.status(404).json({ message: 'Project not found or access denied' });
     }
     
-    // Validasi Input
+    // Validasi input
     if (!title) {
       return res.status(400).json({ message: 'Task title is required' });
     }
@@ -151,6 +152,11 @@ export const createTask = async (req, res) => {
         }
       }
     });
+    
+    // Mengirim event realtime
+    if (req.io) {
+      emitTaskEvent(req.io, projectId, SOCKET_EVENTS.TASK_CREATED, task);
+    }
     
     return res.status(201).json({
       message: 'Task created successfully',
@@ -227,6 +233,20 @@ export const updateTask = async (req, res) => {
       data: updateData
     });
     
+    // Mengirim event realtime
+    if (req.io) {
+      // Jika status berubah, mengirim event khusus untuk update kanban
+      if (status && status !== existingTask.status) {
+        emitTaskEvent(req.io, projectId, SOCKET_EVENTS.TASK_STATUS_CHANGED, {
+          ...updatedTask,
+          oldStatus: existingTask.status,
+          newStatus: status
+        });
+      } else {
+        emitTaskEvent(req.io, projectId, SOCKET_EVENTS.TASK_UPDATED, updatedTask);
+      }
+    }
+    
     return res.status(200).json({
       message: 'Task updated successfully',
       task: updatedTask
@@ -278,6 +298,15 @@ export const deleteTask = async (req, res) => {
     await prisma.task.delete({
       where: { id: taskId }
     });
+    
+    // Mengirim event realtime
+    if (req.io) {
+      emitTaskEvent(req.io, projectId, SOCKET_EVENTS.TASK_DELETED, { 
+        id: taskId,
+        projectId,
+        status: existingTask.status // Menyertakan status untuk update UI
+      });
+    }
     
     return res.status(200).json({ message: 'Task deleted successfully' });
   } catch (error) {

@@ -1,4 +1,5 @@
 import prisma from '../config/prisma.js';
+import { SOCKET_EVENTS, emitMemberEvent } from '../utils/socketEvents.js';
 
 export const getProjectMembers = async (req, res) => {
   try {
@@ -26,7 +27,7 @@ export const getProjectMembers = async (req, res) => {
       return res.status(404).json({ message: 'Project not found or access denied' });
     }
     
-    // Cek pemilik proyek
+    // Mengambil pemilik proyek
     const owner = await prisma.user.findUnique({
       where: { id: project.ownerId },
       select: {
@@ -37,7 +38,7 @@ export const getProjectMembers = async (req, res) => {
       }
     });
     
-    // Cek anggota proyek
+    // Mengambil anggota proyek
     const memberships = await prisma.membership.findMany({
       where: {
         projectId
@@ -132,6 +133,15 @@ export const inviteMember = async (req, res) => {
       }
     });
     
+    // Mengirim event realtime
+    if (req.io) {
+      emitMemberEvent(req.io, projectId, SOCKET_EVENTS.MEMBER_ADDED, {
+        membershipId: membership.id,
+        projectId,
+        user: membership.user
+      });
+    }
+    
     return res.status(201).json({
       message: 'Member invited successfully',
       membership
@@ -163,6 +173,14 @@ export const removeMember = async (req, res) => {
       where: {
         id: membershipId,
         projectId
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true
+          }
+        }
       }
     });
     
@@ -170,10 +188,25 @@ export const removeMember = async (req, res) => {
       return res.status(404).json({ message: 'Membership not found' });
     }
     
+    // Menyimpan info user sebelum penghapusan untuk event
+    const removedUser = {
+      id: membership.user.id,
+      email: membership.user.email
+    };
+    
     // Menghapus membership
     await prisma.membership.delete({
       where: { id: membershipId }
     });
+    
+    // Mengirim event realtime
+    if (req.io) {
+      emitMemberEvent(req.io, projectId, SOCKET_EVENTS.MEMBER_REMOVED, {
+        membershipId,
+        projectId,
+        user: removedUser
+      });
+    }
     
     return res.status(200).json({ message: 'Member removed successfully' });
   } catch (error) {
