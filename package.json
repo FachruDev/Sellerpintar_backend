@@ -16,7 +16,9 @@
     "start": "node src/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma migrate deploy"
+    "prisma:deploy": "prisma migrate deploy",
+    "build": "prisma generate",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.10.1",
@@ -29,5 +31,8 @@
     "morgan": "^1.10.0",
     "node-fetch": "^3.3.2",
     "socket.io": "^4.8.1"
+  },
+  "engines": {
+    "node": ">=18.x"
   }
 }

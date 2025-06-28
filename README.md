@@ -63,6 +63,66 @@ bun start
 
 Server akan berjalan di `http://localhost:3000` (atau port yang ditentukan di .env)
 
+## Deployment ke Heroku
+
+### Persiapan
+
+1. Buat akun Heroku dan install Heroku CLI: https://devcenter.heroku.com/articles/heroku-cli
+
+2. Login ke Heroku CLI:
+```bash
+heroku login
+```
+
+3. Buat aplikasi baru di Heroku:
+```bash
+heroku create nama-aplikasi-anda
+```
+
+4. Tambahkan PostgreSQL add-on:
+```bash
+heroku addons:create heroku-postgresql:mini
+```
+
+### Konfigurasi Environment Variables
+
+Tambahkan environment variables yang diperlukan:
+
+```bash
+heroku config:set JWT_SECRET=your_jwt_secret_key
+heroku config:set NODE_ENV=production
+heroku config:set FRONTEND_URL=https://your-frontend-app.com
+```
+
+### Deploy Aplikasi
+
+1. Push kode ke Heroku:
+```bash
+git push heroku main
+```
+
+2. Jalankan migrasi database:
+```bash
+heroku run npm run prisma:deploy
+```
+
+3. Pastikan aplikasi berjalan:
+```bash
+heroku open
+```
+
+### Monitoring dan Scaling
+
+- Lihat logs:
+```bash
+heroku logs --tail
+```
+
+- Scale aplikasi jika diperlukan:
+```bash
+heroku ps:scale web=2
+```
+
 ## Dokumentasi API
 
 ### Auth Endpoints

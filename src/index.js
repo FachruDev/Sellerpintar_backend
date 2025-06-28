@@ -10,68 +10,85 @@ import routes from './routes/index.js';
 dotenv.config();
 const app = express();
 const httpServer = createServer(app);
+
+// Environment variable
+const PORT = process.env.PORT || 3000;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3001';
+
+// CORS configurati
+const corsOptions = {
+  origin: NODE_ENV === 'production' 
+    ? [FRONTEND_URL, /\.herokuapp\.com$/] 
+    : FRONTEND_URL,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  credentials: true,
+  optionsSuccessStatus: 204,
+};
+
+// Socket.IO setup menggunakan CORS
 const io = new Server(httpServer, {
-  cors: {
-    origin: process.env.FRONTEND_URL || '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true
-  }
+  cors: corsOptions
 });
 
+// Middleware
 app.use(express.json());
-app.use(cors());
+app.use(express.urlencoded({ extended: true }));
+app.use(cors(corsOptions));
 app.use(helmet());
-app.use(morgan('dev'));
 
-// Membuat io available in request object
+if (NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+}
+
+// Membuat io tersedia di request objec
 app.use((req, res, next) => {
   req.io = io;
   next();
 });
 
-// API routes
+// Socket.IO connction handler
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+  
+  // Bergabung ke room proyek ketika client meminta
+  socket.on('join-project', (projectId) => {
+      socket.join(`project-${projectId}`);
+      console.log(`Socket ${socket.id} joined project-${projectId}`);
+  });
+  
+  // Meninggalkan room proyek
+  socket.on('leave-project', (projectId) => {
+      socket.leave(`project-${projectId}`);
+      console.log(`Socket ${socket.id} left project-${projectId}`);
+  });
+  
+  // Handler disconnect
+  socket.on('disconnect', () => {
+      console.log('User disconnected:', socket.id);
+  });
+});
+
+// Routes
 app.use('/api', routes);
 
-// Health check route
+// Health check endpoint untuk Heroku
 app.get('/', (req, res) => {
-    res.status(200).json({ message: 'API is running' });
+  res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
 
-// Error handling middleware
+// Error handl
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({
-        message: 'Something went wrong!',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
+  console.error(err.stack);
+  res.status(500).json({ error: NODE_ENV === 'production' ? 'Internal server error' : err.message });
 });
 
-// 404 handler
+// 404 handl
 app.use((req, res) => {
     res.status(404).json({ message: 'Route not found' });
 });
 
-// Socket.IO connection handler
-io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
-    
-    // Bergabung ke room proyek ketika client meminta
-    socket.on('join-project', (projectId) => {
-        socket.join(`project-${projectId}`);
-        console.log(`Socket ${socket.id} joined project-${projectId}`);
-    });
-    
-    // Meninggalkan room proyek
-    socket.on('leave-project', (projectId) => {
-        socket.leave(`project-${projectId}`);
-        console.log(`Socket ${socket.id} left project-${projectId}`);
-    });
-    
-    // Handler disconnect
-    socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
-    });
+// Mulai server
+httpServer.listen(PORT, () => {
+  console.log(`Server running in ${NODE_ENV} mode on port ${PORT}`);
 });
-
-const PORT = process.env.PORT || 3000;
-httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));
