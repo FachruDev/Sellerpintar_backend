@@ -11,7 +11,10 @@ export const SOCKET_EVENTS = {
   
   // Event member
   MEMBER_ADDED: 'member-added',
-  MEMBER_REMOVED: 'member-removed'
+  MEMBER_REMOVED: 'member-removed',
+  
+  // Event statistik
+  PROJECT_STATS_UPDATED: 'project-stats-updated'
 };
 
 // Fungsi bantu untuk mengirim event proyek

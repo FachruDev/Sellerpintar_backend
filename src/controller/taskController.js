@@ -1,5 +1,5 @@
 import prisma from '../config/prisma.js';
-import { SOCKET_EVENTS, emitTaskEvent } from '../utils/socketEvents.js';
+import { SOCKET_EVENTS, emitTaskEvent, emitProjectEvent } from '../utils/socketEvents.js';
 
 export const getAllTasks = async (req, res) => {
   try {
@@ -94,6 +94,40 @@ export const getTaskById = async (req, res) => {
   }
 };
 
+// Fungsi helper untuk mendapatkan dan mengirim statistik proyek
+const updateProjectStats = async (io, projectId) => {
+  try {
+    // Mengambil statistik task
+    const taskStats = await prisma.task.groupBy({
+      by: ['status'],
+      where: {
+        projectId
+      },
+      _count: {
+        id: true
+      }
+    });
+    
+    // Memformat statistik
+    const formattedStats = {
+      todo: 0,
+      'in-progress': 0,
+      done: 0
+    };
+    
+    taskStats.forEach(stat => {
+      formattedStats[stat.status] = stat._count.id;
+    });
+    
+    // Mengirim event statistik
+    emitProjectEvent(io, projectId, SOCKET_EVENTS.PROJECT_STATS_UPDATED, formattedStats);
+    
+    return formattedStats;
+  } catch (error) {
+    console.error('Error updating project stats:', error);
+  }
+};
+
 export const createTask = async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -156,6 +190,8 @@ export const createTask = async (req, res) => {
     // Mengirim event realtime
     if (req.io) {
       emitTaskEvent(req.io, projectId, SOCKET_EVENTS.TASK_CREATED, task);
+      // Update statistik proyek
+      await updateProjectStats(req.io, projectId);
     }
     
     return res.status(201).json({
@@ -245,6 +281,11 @@ export const updateTask = async (req, res) => {
       } else {
         emitTaskEvent(req.io, projectId, SOCKET_EVENTS.TASK_UPDATED, updatedTask);
       }
+      
+      // Update statistik proyek jika status berubah
+      if (status && status !== existingTask.status) {
+        await updateProjectStats(req.io, projectId);
+      }
     }
     
     return res.status(200).json({
@@ -306,6 +347,9 @@ export const deleteTask = async (req, res) => {
         projectId,
         status: existingTask.status // Menyertakan status untuk update UI
       });
+      
+      // Update statistik proyek
+      await updateProjectStats(req.io, projectId);
     }
     
     return res.status(200).json({ message: 'Task deleted successfully' });
