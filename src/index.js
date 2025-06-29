@@ -16,11 +16,14 @@ const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3001';
 
+// multiple frontend url
+const frontendUrls = FRONTEND_URL ? FRONTEND_URL.split(',').map(url => url.trim()) : ['http://localhost:3001'];
+
 // CORS configurati
 const corsOptions = {
   origin: NODE_ENV === 'production' 
-    ? [FRONTEND_URL, /\.herokuapp\.com$/] 
-    : FRONTEND_URL,
+    ? [...frontendUrls, /\.herokuapp\.com$/] 
+    : frontendUrls,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   credentials: true,
   optionsSuccessStatus: 204,
